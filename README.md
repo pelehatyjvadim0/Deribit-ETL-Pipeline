@@ -98,3 +98,26 @@
     [🕒] Покрытие DAO и API Unit-тестами (Pytest).
 
     [🕒] Интеграция Grafana для визуализации накопленных данных.
+
+<br/>
+
+<p align="center">
+  <strong><h2 align='center'>DERIBIT-ETL-PIPELINE - точность в каждой котировке.</h2></strong>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/aqua.png" width="100%">
+</p>
+
+<p align="center">
+  <kbd>📞 Contact Me</kbd>
+</p>
+
+<p align="center">
+  <a href="https://t.me/sorrow9">
+    <img src="https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" />
+  </a>
+  <a href="mailto:pelehatyjvadim0@gmail.com">
+    <img src="https://img.shields.io/badge/Email-D14836?style=for-the-badge&logo=gmail&logoColor=white" />
+  </a>
+</p>
