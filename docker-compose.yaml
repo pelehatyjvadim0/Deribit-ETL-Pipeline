@@ -1,0 +1,64 @@
+services:
+  postgres-db:
+    image: postgres:15
+    container_name: deribit_db
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis-db:
+    image: redis:7
+    container_name: deribit_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  deribit-app:
+    build: .
+    container_name: deribit_api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      redis-db:
+        condition: service_started
+  
+  celery-worker:
+    build: .
+    container_name: celery_worker
+    command: python -m celery -A app.tasks.celery:celery_app worker --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      redis-db:
+        condition: service_started
+  
+  celery-beat:
+    build: .
+    container_name: detibit_beat
+    command: python -m celery -A app.tasks.celery:celery_app beat --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      - redis-db
+
+volumes:
+  postgres_data:
+
+  
