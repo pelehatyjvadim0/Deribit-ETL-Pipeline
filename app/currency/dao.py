@@ -20,15 +20,21 @@ class TickDAO:
         await session.commit()
         
     @classmethod
-    async def find_all_by_ticker(cls, ticker: str, session=None):
+    async def find_all_by_ticker(cls, ticker: str, limit: int = 100, offset: int = 0, session=None):
         if session is None:
             async with new_session() as session:
-                return await cls._execute_find_all(session, ticker)
-        return await cls._execute_find_all(session, ticker)
+                return await cls._execute_find_all(session, ticker, limit, offset)
+        return await cls._execute_find_all(session, ticker, limit, offset)
 
     @classmethod
-    async def _execute_find_all(cls, session, ticker):
-        query = select(cls.model).filter_by(ticker=ticker)
+    async def _execute_find_all(cls, session, ticker, limit, offset):
+        query = (
+            select(cls.model)
+            .filter_by(ticker=ticker)
+            .order_by(cls.model.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
         result = await session.execute(query)
         return result.scalars().all()
     

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Field
 from decimal import Decimal
 import time
 from enum import Enum
@@ -8,7 +8,7 @@ class CurrencyTicker(str, Enum):
     ETH_USD = "eth_usd"
 
 class STickResponse(BaseModel):
-    ticker: str
+    ticker: CurrencyTicker
     price: Decimal
     timestamp: int
     
@@ -39,8 +39,14 @@ class SPriceRequest(BaseModel):
         if self.end_timestamp < self.start_timestamp:
             raise ValueError('Конец периода не может быть раньше начала!')
         
-        now_ms = int(time.time() * 1000)
-        if self.start_timestamp > now_ms * 60000:
+        max_future_time = int((time.time() + 60) * 1000)
+        if self.start_timestamp > max_future_time:
             raise ValueError('Вы пытаетесь запросить данные из будущего!')
         
         return self
+    
+class STickPaginationParams(BaseModel):
+    ticker: CurrencyTicker
+    
+    limit: int = Field(10, ge=1, le=100, description="Количество записей (1-100)")
+    offset: int = Field(0, ge=0, description="Смещение от начала")
