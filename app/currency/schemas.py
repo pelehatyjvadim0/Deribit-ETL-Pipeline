@@ -21,32 +21,35 @@ class STickPaginationParams(BaseModel):
 
 class SPriceRequest(STickPaginationParams):
     ticker: CurrencyTicker
-    start_timestamp: int
-    end_timestamp: int
+    start_timestamp: int = Field(..., description='Начало периода')
+    end_timestamp: int | None = Field(None, description='Конец периода')
 
     @field_validator("start_timestamp", "end_timestamp")
     @classmethod
     def validate_timestamp(cls, v: int):
-        # 10**11 — это граница между секундами и миллисекундами
-        # в 2026 году секунды - это ~1.7*10^9, миллисекунды - ~1.7*10^12
-        if v < 10**11: 
-            # Похоже на секунды, конвертируем в миллисекунды
-            return v * 1000
-        
-        # Защита от слишком огромных чисел (больше 15 цифр/микросекнд)
-        if v > 10**14:
-            raise ValueError("Timestamp слишком длинный (возможно, это микросекунды)")
+        if v != None:
+            # 10**11 — это граница между секундами и миллисекундами
+            # в 2026 году секунды - это ~1.7*10^9, миллисекунды - ~1.7*10^12
+            if v < 10**11: 
+                # Похоже на секунды, конвертируем в миллисекунды
+                return v * 1000
             
-        return v
+            # Защита от слишком огромных чисел (больше 15 цифр/микросекнд)
+            if v > 10**14:
+                raise ValueError("Timestamp слишком длинный (возможно, это микросекунды)")
+                
+            return v
+        return v 
     
     @model_validator(mode='after')
     def check_logic(self) -> 'SPriceRequest':
-        if self.end_timestamp < self.start_timestamp:
-            raise ValueError('Конец периода не может быть раньше начала!')
-        
-        max_future_time = int((time.time() + 60) * 1000)
-        if self.start_timestamp > max_future_time:
-            raise ValueError('Вы пытаетесь запросить данные из будущего!')
+        if self.start_timestamp and self.end_timestamp :
+            if self.end_timestamp < self.start_timestamp:
+                raise ValueError('Конец периода не может быть раньше начала!')
+            
+            max_future_time = int((time.time() + 60) * 1000)
+            if self.start_timestamp > max_future_time:
+                raise ValueError('Вы пытаетесь запросить данные из будущего!')
         
         return self
     

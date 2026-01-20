@@ -26,16 +26,21 @@ async def setup_db():
     async with engine_test.begin() as conn:
         await conn.run_sync(BaseModel.metadata.drop_all)
 
-async def get_test_db_session():
+async def get_test_override_session():
     async with session_maker() as session:
         yield session
 
 @pytest.fixture(scope='function', autouse=True)
 async def override_get_session():
-    app.dependency_overrides[get_session] = get_test_db_session
+    app.dependency_overrides[get_session] = get_test_override_session
     yield
     app.dependency_overrides.clear()
-
+    
+@pytest.fixture(scope='function')
+async def get_test_db_session():
+    async with session_maker() as session:
+        yield session
+        await session.rollback()
 
 @pytest.fixture(scope='function')     
 async def ac_client():
