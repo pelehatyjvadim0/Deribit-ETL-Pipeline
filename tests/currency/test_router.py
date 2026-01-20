@@ -1,25 +1,22 @@
 import pytest
-from tests.conftest import override_get_db
-from app.main import app
-from app.dependencies import get_session
+from app.currency.dao import TickDAO
 
 @pytest.mark.parametrize('ticker_in, ticker_out, exp_status', [
     ('eth_usd', 'eth_usd', 200),
     ('test_usd', 'btc_usd', 422),
     ('btc_usd', 'eth_usd', 200),
 ], ids=["eth_success", "invalid_ticker", "btc_success"])
-async def test_get_all_prices(ac_offline, mocker, ticker_in, ticker_out, exp_status):
+async def test_get_all_prices(ac_client, mocker, mocker_Tick_DAO, ticker_in, ticker_out, exp_status):
     
-    client = ac_offline
+    client = ac_client
     m_all_tickers = [
         {'id': 1,
          'ticker': ticker_out,
          'price': 9999.99,
          'timestamp': 9832312231}
     ]
-    
-    m_DAO = mocker.patch('app.currency.router.TickDAO', new_callable=mocker.MagicMock)
-    m_DAO.find_all_by_ticker = mocker.AsyncMock(return_value = m_all_tickers)
+
+    mocker_Tick_DAO.find_all_by_ticker = mocker.AsyncMock(return_value = m_all_tickers)
     
     response = await client.get('/prices/', params={'ticker': ticker_in})
     
@@ -30,3 +27,22 @@ async def test_get_all_prices(ac_offline, mocker, ticker_in, ticker_out, exp_sta
     
     if status_code == 200:
         assert response.json()[0]['ticker'] == ticker_out
+
+@pytest.mark.parametrize('ticker_to, dict_resp, status_code', [
+    ('eth_usd',  {'id': 1, 'ticker': 'test_usd', 'price': 9999.9, 'timestamp': 7639864219}, 500),
+    ('test_usd', {'id': 1, 'ticker': 'btc_usd', 'price': 9999.9, 'timestamp': 7639864219}, 422),
+    ('btc_usd', {'id': 1, 'ticker': 'btc_usd', 'price': 9999.9, 'timestamp': 7639864219}, 200),
+    ('btc_usd', {'id': 1, 'ticker': 'eth_usd', 'price': 9999.9, 'timestamp': 7639864219}, 200),
+    ('btc_usd', {'id': 1, 'ticker': 'btc_usd', 'timestamp': 7639864219}, 500),
+    ('btc_usd', {'id': 1, 'ticker': 'btc_usd', 'price': 9999.9}, 500),
+    ('btc_usd', {'ticker': 'btc_usd', 'price': 9999.9, 'timestamp': 7639864219}, 200),
+], ids=['invalid_ticker_resp', 'invalid_ticker_in', 'success_operation', 'success_diff_ticker', 'none_price_in_resp', 'none_timestamp_in_resp', 'none_id_in_resp'])
+async def test_get_latest_price(ac_client, mocker, mocker_Tick_DAO, ticker_to, dict_resp, status_code):
+    mocker_Tick_DAO.find_latest = mocker.AsyncMock(return_value = dict_resp)
+
+    response = await ac_client.get(f'/prices/{ticker_to}/latest')
+
+    assert response.status_code == status_code
+    if response.status_code == 200 and 'id' in dict_resp:
+        json_data = response.json()
+        assert len(json_data) != len(dict_resp)
