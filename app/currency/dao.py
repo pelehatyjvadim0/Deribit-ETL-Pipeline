@@ -57,14 +57,14 @@ class TickDAO:
         return result.scalars().first()
         
     @classmethod
-    async def find_by_date(cls, ticker: str, start_ts: int, end_ts: int, session=None):
+    async def find_by_filter(cls, ticker: str, start_ts: int, end_ts: int, session=None):
         if session is None:
             async with new_session() as session:
-                return await cls._execute_find_by_date(session, ticker, start_ts, end_ts)
-        return await cls._execute_find_by_date(session, ticker, start_ts, end_ts)
+                return await cls._execute_find_by_filter(session, ticker, start_ts, end_ts)
+        return await cls._execute_find_by_filter(session, ticker, start_ts, end_ts)
 
     @classmethod
-    async def _execute_find_by_date(cls, session, ticker, start_ts, end_ts):
+    async def _execute_find_by_filter(cls, session, ticker, start_ts, end_ts):
         query = (
             select(cls.model)
             .filter(

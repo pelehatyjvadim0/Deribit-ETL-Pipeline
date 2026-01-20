@@ -40,5 +40,5 @@ async def get_prices_by_filter(
 ):
     end_ts = params.end_timestamp if params.end_timestamp is not None else current_time
         
-    data = await TickDAO.find_by_date(params.ticker, start_ts=params.start_timestamp, end_ts=end_ts, session=session)
+    data = await TickDAO.find_by_filter(params.ticker, start_ts=params.start_timestamp, end_ts=end_ts, session=session)
     return data

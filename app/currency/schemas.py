@@ -6,7 +6,7 @@ from enum import Enum
 class CurrencyTicker(str, Enum):
     BTC_USD = "btc_usd"
     ETH_USD = "eth_usd"
-
+    
 class STickResponse(BaseModel):
     ticker: CurrencyTicker
     price: Decimal
@@ -14,7 +14,12 @@ class STickResponse(BaseModel):
     
     model_config = ConfigDict(from_attributes=True)
     
-class SPriceRequest(BaseModel):
+class STickPaginationParams(BaseModel):
+    ticker: CurrencyTicker
+    limit: int = Field(10, ge=1, le=100, description="Количество записей (1-100)")
+    offset: int = Field(0, ge=0, description="Смещение от начала")
+
+class SPriceRequest(STickPaginationParams):
     ticker: CurrencyTicker
     start_timestamp: int
     end_timestamp: int
@@ -45,8 +50,3 @@ class SPriceRequest(BaseModel):
         
         return self
     
-class STickPaginationParams(BaseModel):
-    ticker: CurrencyTicker
-    
-    limit: int = Field(10, ge=1, le=100, description="Количество записей (1-100)")
-    offset: int = Field(0, ge=0, description="Смещение от начала")
