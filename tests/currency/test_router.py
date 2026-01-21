@@ -1,5 +1,5 @@
 import pytest
-from app.currency.dao import TickDAO
+from app.api.router import TickDAO
 
 @pytest.mark.parametrize('ticker_to, dao_return, exp_status', [
     ('eth_usd', [{'id': 1, 'ticker': 'btc_usd', 'price': 9999.9, 'timestamp': 7639864219}], 200),
@@ -44,13 +44,16 @@ async def test_get_latest_price(ac_client, mocker, mocker_Tick_DAO, ticker_to, d
 
 @pytest.mark.parametrize('params, dao_return, status_code', [
     ({'ticker': 'btc_usd', 'start_timestamp': 1673737000}, [{'ticker': 'btc_usd', 'price': 100, 'timestamp': 1737370001}], 200),
-    ({'ticker': 'btc_usd', 'start_timestamp': 1673737000}, [], 200),
     ({'ticker': 'btc_usd', 'start_timestamp': 'вчера'}, [], 422),
+    ({'ticker': 'btc_usd', 'start_timestamp': 1673737000}, [], 200),
     ({'ticker': 'btc_usd', 'start_timestamp': 1673737000, 'limit': 50, 'offset': 10}, [], 200),
+    ({'ticker': 'btc_usd', 'start_timestamp': 1673737000, 'limit': 5, 'offset': -1}, [], 422),
     ({'ticker': 'btc_usd', 'start_timestamp': 1673737000, 'limit': 101}, [], 422),
     ({'ticker': 'btc_usd', 'start_timestamp': 1673737000, 'limit': 0}, [], 422),
-    ({'ticker': 'btc_usd', 'start_timestamp': 1673737000, 'limit': 5, 'offset': -1}, [], 422),
-], ids=['success_filter', 'not_int_from_start_timestamp', 'success_empty_list_return', 'success_size_filter', 'limit_invalid_le_100', 'offset_invalid_ge_0', 'limit_invalid_ge_1'])
+    ({'ticker': 'btc_usd', 'start_timestamp': 1673737000312313, 'limit': 5, 'offset': 0}, [], 422),
+    ({'ticker': 'btc_usd', 'start_timestamp': 1673737000, 'end_timestamp': 1673736000, 'limit': 5, 'offset': 0}, [], 422),
+    ({'ticker': 'btc_usd', 'start_timestamp': 2020723200, 'limit': 50, 'offset': 10}, [], 422)
+], ids=['success_filter', 'not_int_from_start_timestamp', 'success_empty_list_return', 'success_size_filter', 'limit_invalid_le_100', 'offset_invalid_ge_0','limit_invalid_ge_1', 'long_start_ts', 'end_before_the_start', 'future_start_ts'])
 async def test_get_prices_by_filter(mocker, mocker_Tick_DAO, ac_client, params, dao_return, status_code):
     mocker_Tick_DAO.find_by_filter = mocker.AsyncMock(return_value=dao_return)
 
@@ -60,3 +63,5 @@ async def test_get_prices_by_filter(mocker, mocker_Tick_DAO, ac_client, params, 
         assert isinstance(response.json(), list)
         if len(response.json()) != 0:
             assert len(response.json()[0]) != len(dao_return)
+    
+    assert response.status_code == status_code

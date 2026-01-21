@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 import aiohttp
 from fastapi import FastAPI
 
-from app.currency.router import router as router_currency
+from app.api.router import router as router_currency
 from app.core.http_client import HttpClient
 
 @asynccontextmanager

@@ -20,7 +20,6 @@ class Settings(BaseSettings):
         if self.MODE == 'TEST':
             return 'sqlite+aiosqlite:///:memory:'
         password = quote_plus(str(self.DB_PASS))
-        print('ЫЫЫЫЫЫЫЫЫЫЫЫЫЫЫЫЫЫЫЫВВВВВВВВВВВВВВВВВВВВ')
         return f"postgresql+asyncpg://{self.DB_USER}:{password}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
     model_config = SettingsConfigDict(env_file="",

@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict, field_validator, model_validator, Fi
 from decimal import Decimal
 import time
 from enum import Enum
+from fastapi import HTTPException, status
 
 class CurrencyTicker(str, Enum):
     BTC_USD = "btc_usd"
@@ -27,29 +28,31 @@ class SPriceRequest(STickPaginationParams):
     @field_validator("start_timestamp", "end_timestamp")
     @classmethod
     def validate_timestamp(cls, v: int):
-        if v != None:
-            # 10**11 — это граница между секундами и миллисекундами
-            # в 2026 году секунды - это ~1.7*10^9, миллисекунды - ~1.7*10^12
-            if v < 10**11: 
-                # Похоже на секунды, конвертируем в миллисекунды
-                return v * 1000
+        # 10**11 — это граница между секундами и миллисекундами
+        # в 2026 году секунды - это ~1.7*10^9, миллисекунды - ~1.7*10^12
+        if v < 10**11: 
+            # Похоже на секунды, конвертируем в миллисекунды
+            return v * 1000
             
-            # Защита от слишком огромных чисел (больше 15 цифр/микросекнд)
-            if v > 10**14:
-                raise ValueError("Timestamp слишком длинный (возможно, это микросекунды)")
-                
-            return v
-        return v 
+        # Защита от слишком огромных чисел (больше 15 цифр/микросекнд)
+        if v > 10**14:
+            raise ValueError("Timestamp слишком длинный (возможно, это микросекунды)")  
     
     @model_validator(mode='after')
     def check_logic(self) -> 'SPriceRequest':
-        if self.start_timestamp and self.end_timestamp :
+        if self.start_timestamp and self.end_timestamp:
             if self.end_timestamp < self.start_timestamp:
                 raise ValueError('Конец периода не может быть раньше начала!')
             
-            max_future_time = int((time.time() + 60) * 1000)
-            if self.start_timestamp > max_future_time:
-                raise ValueError('Вы пытаетесь запросить данные из будущего!')
+        now_sec = int(time.time())
+        start_sec = self.start_timestamp
+        print(f"\nDEBUG: now={int(time.time())} start={start_sec}")
+            
+        if start_sec > 10**12:
+            start_sec //= 1000
+            
+        if start_sec > (now_sec + 60):
+            raise ValueError('Вы пытаетесь запросить данные из будущего!')
         
         return self
     

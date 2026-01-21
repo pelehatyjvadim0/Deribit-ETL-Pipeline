@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Query, status, Depends, Path
-from app.currency.dao import TickDAO
-from app.currency.schemas import STickResponse, SPriceRequest, STickPaginationParams, CurrencyTicker
+from app.crud import TickDAO
+from app.schemas import STickResponse, SPriceRequest, STickPaginationParams, CurrencyTicker
 from typing import List, Annotated
-from app.dependencies import CurrentTimeDep, SessionDep
+from app.api.dependencies import CurrentTimeDep, SessionDep
 
 router = APIRouter(
     prefix='/prices',
@@ -36,7 +36,7 @@ async def get_latest_price(session: SessionDep, ticker: Annotated[CurrencyTicker
 async def get_prices_by_filter(
     current_time: CurrentTimeDep,
     session: SessionDep,
-    params: SPriceRequest = Depends()
+    params: Annotated[SPriceRequest, Query()]
 ):
     end_ts = params.end_timestamp if params.end_timestamp is not None else current_time
         

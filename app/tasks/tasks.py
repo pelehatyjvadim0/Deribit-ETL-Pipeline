@@ -1,7 +1,7 @@
 import asyncio
 from app.tasks.celery import celery_app
-from app.external_api.client import DeribitClient
-from app.currency.dao import TickDAO
+from app.external_api.deribit import DeribitClient
+from app.crud import TickDAO
 from app.core.database import new_session
 
 @celery_app.task(name='fetch_crypto_prices')

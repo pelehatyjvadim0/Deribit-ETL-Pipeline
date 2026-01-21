@@ -10,7 +10,7 @@ import asyncio
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.models import BaseModel
-from app.currency.models import CurrencyTick
+from app.crud import CurrencyTick
 
 from app.core.config import settings
 

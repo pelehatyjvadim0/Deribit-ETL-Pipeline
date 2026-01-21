@@ -1,5 +1,5 @@
 from sqlalchemy import desc, select, insert
-from app.currency.models import CurrencyTick
+from app.core.models import CurrencyTick
 from app.core.database import new_session
 import decimal
 
