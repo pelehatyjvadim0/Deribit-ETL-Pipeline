@@ -15,8 +15,8 @@ from app.main import app
 from app.dependencies import get_session
 from app.core.models import BaseModel
 from app.core.config import settings
+from app.core.database import engine as engine_test
 
-engine_test = create_async_engine(settings.DATABASE_URL)
 session_maker = async_sessionmaker(bind=engine_test)
     
 @pytest.fixture(scope='session', autouse=True)
