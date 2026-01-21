@@ -1,4 +1,8 @@
+import os 
 import pytest 
+
+os.environ['MODE'] = 'TEST'
+
 import asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -12,8 +16,7 @@ from app.dependencies import get_session
 from app.core.models import BaseModel
 from app.core.config import settings
 
-DATABASE_URL = 'sqlite+aiosqlite:///:memory:'
-engine_test = create_async_engine(DATABASE_URL)
+engine_test = create_async_engine(settings.DATABASE_URL)
 session_maker = async_sessionmaker(bind=engine_test)
     
 @pytest.fixture(scope='session', autouse=True)
@@ -37,7 +40,7 @@ async def override_get_session():
     app.dependency_overrides.clear()
     
 @pytest.fixture(scope='function')
-async def get_test_db_session():
+async def session():
     async with session_maker() as session:
         yield session
         await session.rollback()
