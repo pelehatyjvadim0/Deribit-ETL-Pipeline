@@ -1,4 +1,11 @@
-# Deribit ETL Pipeline
+<div align="center">
+  <img width="100%" alt="Deribit ETL Pipeline" src="https://capsule-render.vercel.app/api?type=rect&color=0:F8FAFC,100:E2E8F0&height=180&section=header&text=Deribit%20ETL%20Pipeline&fontSize=57&fontColor=0F172A&fontAlignY=40&desc=Small%20service.%20Clear%20contracts.%20Reproducible%20startup.&descAlignY=64&descSize=16" />
+
+  <a href="#http-api"><img alt="Ticks BTC and ETH" src="https://img.shields.io/badge/TICKS-BTC__USD%20%2B%20ETH__USD-475569?style=for-the-badge&labelColor=1E293B" /></a>
+  <a href="#архитектура-и-ограничения"><img alt="Scheduler Celery Beat" src="https://img.shields.io/badge/SCHEDULER-CELERY%20BEAT-64748B?style=for-the-badge&labelColor=334155" /></a>
+
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=650&size=16&pause=1900&color=334155&center=true&vCenter=true&width=720&lines=Price+observations%2C+not+trading+advice." alt="Price observations not trading advice" />
+</div>
 
 Сервис периодически получает индексные цены `BTC_USD` и `ETH_USD` из
 публичного API Deribit, сохраняет наблюдения в PostgreSQL и предоставляет
