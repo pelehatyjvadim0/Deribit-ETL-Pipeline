@@ -37,7 +37,10 @@ Unit of work фиксирует успешный batch один раз или в
 
 FastAPI lifespan владеет HTTP-клиентом и SQLAlchemy engine. На каждый HTTP-запрос
 создаётся отдельная сессия. Синхронная Celery-задача вызывает `asyncio.run()`
-один раз и освобождает engine в `finally`.
+один раз и освобождает engine в `finally`. Ошибки SQLAlchemy и отказы соединения
+с БД повторяются Celery не более трёх раз с задержками 1, 2 и 4 секунды. Ошибки
+Deribit не повторяют весь batch: worker выводит для каждого неуспешного тикера
+событие с полями `ticker`, `timestamp` и `error_class`.
 
 В Compose PostgreSQL и Redis имеют health checks. API, worker и beat запускаются
 только после их готовности. API применяет Alembic-миграции до запуска Uvicorn;

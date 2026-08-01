@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 import httpx
+from sqlalchemy.exc import SQLAlchemyError
 
 from deribit_etl.application.ingest import IngestPrices
 from deribit_etl.domain.models import Ticker
@@ -40,7 +41,12 @@ async def _run_ingestion() -> None:
             ).run(list(Ticker))
             for ticker, error in failures.items():
                 logger.warning(
-                    "ingestion_upstream_failure",
+                    (
+                        "ingestion_upstream_failure ticker=%s timestamp=null "
+                        "error_class=%s"
+                    ),
+                    ticker.value,
+                    type(error).__name__,
                     extra={
                         "event": "ingestion_upstream_failure",
                         "ticker": ticker.value,
@@ -52,7 +58,14 @@ async def _run_ingestion() -> None:
         await engine.dispose()
 
 
-@celery_app.task(name="fetch_crypto_prices")
+@celery_app.task(
+    name="fetch_crypto_prices",
+    autoretry_for=(SQLAlchemyError, OSError),
+    retry_backoff=True,
+    retry_backoff_max=60,
+    retry_jitter=False,
+    retry_kwargs={"max_retries": 3},
+)
 def fetch_crypto_prices() -> None:
     """Run one ingestion coroutine in one task-owned event loop."""
     asyncio.run(_run_ingestion())

@@ -4,6 +4,9 @@ from collections.abc import Coroutine
 from typing import Any
 
 import pytest
+from celery.app.log import TaskFormatter
+from celery.exceptions import Retry
+from sqlalchemy.exc import OperationalError
 
 from deribit_etl.domain.errors import UpstreamUnavailable
 from deribit_etl.domain.models import Ticker
@@ -32,6 +35,47 @@ def test_celery_boundary_runs_the_async_runner_exactly_once(monkeypatch) -> None
     tasks.fetch_crypto_prices.run()
 
     assert calls == {"runner": 1, "asyncio_run": 1}
+
+
+@pytest.mark.parametrize(
+    "database_error",
+    [
+        OperationalError("COMMIT", {}, RuntimeError("connection lost")),
+        ConnectionRefusedError("postgres is unavailable"),
+    ],
+)
+def test_celery_boundary_retries_database_errors_with_bounded_backoff(
+    monkeypatch, database_error
+) -> None:
+    """Database retries must back off and stop after the configured task limit."""
+    from deribit_etl.infrastructure.tasks import tasks
+
+    async def failing_runner() -> None:
+        raise database_error
+
+    monkeypatch.setattr(tasks, "_run_ingestion", failing_runner)
+
+    with pytest.raises(Retry) as retry:
+        tasks.fetch_crypto_prices.apply(throw=True, retries=1)
+    assert retry.value.when == 2
+
+    with pytest.raises(type(database_error)):
+        tasks.fetch_crypto_prices.apply(throw=True, retries=3)
+
+
+def test_celery_boundary_does_not_retry_upstream_errors(monkeypatch) -> None:
+    """Provider outages are already isolated per ticker and must not retry the batch."""
+    from deribit_etl.infrastructure.tasks import tasks
+
+    error = UpstreamUnavailable("Deribit unavailable")
+
+    async def failing_runner() -> None:
+        raise error
+
+    monkeypatch.setattr(tasks, "_run_ingestion", failing_runner)
+
+    with pytest.raises(UpstreamUnavailable, match="Deribit unavailable"):
+        tasks.fetch_crypto_prices.apply(throw=True, retries=0)
 
 
 @pytest.mark.asyncio
@@ -65,10 +109,10 @@ async def test_async_runner_disposes_the_engine_once_when_ingestion_fails(monkey
 
 
 @pytest.mark.asyncio
-async def test_async_runner_logs_partial_failures_with_structured_fields(
+async def test_async_runner_renders_partial_failure_fields_in_celery_output(
     monkeypatch, caplog
 ) -> None:
-    """Dropping a failure field would make worker events impossible to aggregate."""
+    """Celery's formatter must expose every partial-failure field to operators."""
     from deribit_etl.infrastructure.tasks import tasks
 
     class FakeEngine:
@@ -117,6 +161,15 @@ async def test_async_runner_logs_partial_failures_with_structured_fields(
     assert record.ticker == "eth_usd"
     assert record.timestamp is None
     assert record.error_class == "UpstreamUnavailable"
+    formatter = TaskFormatter(
+        tasks.celery_app.conf.worker_task_log_format,
+        use_color=False,
+    )
+    rendered_output = formatter.format(record)
+    assert (
+        "ingestion_upstream_failure ticker=eth_usd timestamp=null "
+        "error_class=UpstreamUnavailable" in rendered_output
+    )
 
 
 def test_settings_database_url_preserves_spaces_in_passwords() -> None:
