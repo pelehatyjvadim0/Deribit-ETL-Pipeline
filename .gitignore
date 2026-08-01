@@ -31,6 +31,7 @@ celerybeat.pid
 *.swo
 
 .pytest_cache/
+.worktrees/
 .tox/
 .coverage
 htmlcov/
