@@ -181,6 +181,61 @@ async def test_health_returns_safe_service_unavailable_when_database_fails(
 
 
 @pytest.mark.asyncio
+async def test_health_sanitizes_an_asyncpg_connection_refusal(api_context) -> None:
+    """An unwrapped asyncpg connection refusal must not escape as HTTP 500."""
+    from deribit_etl.api.dependencies import get_session
+
+    app, _ = api_context
+
+    class RefusedSession:
+        async def execute(self, statement: object) -> None:
+            raise ConnectionRefusedError(
+                "postgresql://user:s3cr3t-password@127.0.0.1:1/deribit"
+            )
+
+    async def refused_session():
+        yield RefusedSession()
+
+    app.dependency_overrides[get_session] = refused_session
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/health")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Service is not ready"}
+    assert "s3cr3t-password" not in response.text
+
+
+@pytest.mark.asyncio
+async def test_health_keeps_unexpected_probe_failures_as_internal_errors(
+    api_context,
+) -> None:
+    """Catching every exception would misclassify application defects as unready."""
+    from deribit_etl.api.dependencies import get_session
+
+    app, _ = api_context
+
+    class BrokenSession:
+        async def execute(self, statement: object) -> None:
+            raise RuntimeError("unexpected probe defect")
+
+    async def broken_session():
+        yield BrokenSession()
+
+    app.dependency_overrides[get_session] = broken_session
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/health")
+
+    assert response.status_code == 500
+    assert response.text == "Internal Server Error"
+
+
+@pytest.mark.asyncio
 async def test_filter_rejects_a_range_starting_in_the_future(api_context) -> None:
     """Removing the future guard must incorrectly call the query use case."""
     app, reader = api_context

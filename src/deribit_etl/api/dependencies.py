@@ -66,7 +66,7 @@ async def health_readiness_probe(session: SessionDep) -> None:
     """Verify database readiness without returning connection details."""
     try:
         await session.execute(text("SELECT 1"))
-    except SQLAlchemyError as error:
+    except (SQLAlchemyError, OSError) as error:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Service is not ready",
