@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Сервис сбора и хранения котировок Deribit."
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "aiohttp",
     "fastapi",
     "uvicorn",
     "httpx",
@@ -22,7 +21,6 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
-    "pytest-mock",
     "ruff",
     "pyright",
     "pre-commit",

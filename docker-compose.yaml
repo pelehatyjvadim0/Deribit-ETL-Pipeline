@@ -1,66 +1,93 @@
+x-app-service: &app-service
+  build:
+    context: .
+  environment: &app-environment
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: "5432"
+    POSTGRES_USER: ${POSTGRES_USER:-deribit}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deribit}
+    POSTGRES_DB: ${POSTGRES_DB:-deribit}
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    DERIBIT_BASE_URL: ${DERIBIT_BASE_URL:-https://www.deribit.com/api/v2}
+    DERIBIT_TIMEOUT_SECONDS: ${DERIBIT_TIMEOUT_SECONDS:-10}
+    DERIBIT_RETRY_ATTEMPTS: ${DERIBIT_RETRY_ATTEMPTS:-3}
+    LOG_LEVEL: ${LOG_LEVEL:-info}
+  depends_on: &app-dependencies
+    postgres:
+      condition: service_healthy
+      required: true
+    redis:
+      condition: service_healthy
+      required: true
+
 services:
-  postgres-db:
-    image: postgres:15
-    container_name: deribit_db
-    restart: always
+  postgres:
+    image: postgres:16.9-bookworm
     environment:
-      - POSTGRES_USER=${DB_USER}
-      - POSTGRES_PASSWORD=${DB_PASS}
-      - POSTGRES_DB=${DB_NAME}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-deribit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-deribit}
+      POSTGRES_DB: ${POSTGRES_DB:-deribit}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 5s
 
-  redis-db:
-    image: redis:7
-    container_name: deribit_redis
-    restart: always
-    ports:
-      - "6379:6379"
+  redis:
+    image: redis:7.4.4-bookworm
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  deribit-app:
-    build: .
-    container_name: deribit_api
-    env_file:
-      - .env
+  api:
+    <<: *app-service
+    command:
+      - sh
+      - -c
+      - >-
+        alembic upgrade head &&
+        exec uvicorn deribit_etl.main:app --host 0.0.0.0 --port 8000
+        --log-level "$${LOG_LEVEL}"
     ports:
       - "8000:8000"
-    volumes:
-      - .:/deribit_tracker
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-      redis-db:
-        condition: service_started
-  
-  celery-worker:
-    build: .
-    container_name: celery_worker
-    command: python -m celery -A app.tasks.celery:celery_app worker --loglevel=info
-    env_file:
-      - .env
-    depends_on:
-      postgres-db:
-        condition: service_healthy
-      redis-db:
-        condition: service_started
-  
-  celery-beat:
-    build: .
-    container_name: detibit_beat
-    command: python -m celery -A app.tasks.celery:celery_app beat --loglevel=info
-    env_file:
-      - .env
-    depends_on:
-      - redis-db
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  worker:
+    <<: *app-service
+    command:
+      - sh
+      - -c
+      - >-
+        exec celery -A deribit_etl.infrastructure.tasks.celery:celery_app worker
+        --loglevel="$${LOG_LEVEL}"
+
+  beat:
+    <<: *app-service
+    command:
+      - sh
+      - -c
+      - >-
+        exec celery -A deribit_etl.infrastructure.tasks.celery:celery_app beat
+        --loglevel="$${LOG_LEVEL}" --schedule=/tmp/celerybeat-schedule
 
 volumes:
-  postgres_data:
-
-  
+  postgres-data:
