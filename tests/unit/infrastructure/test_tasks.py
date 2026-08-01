@@ -48,19 +48,40 @@ def test_celery_boundary_retries_database_errors_with_bounded_backoff(
     monkeypatch, database_error
 ) -> None:
     """Database retries must back off and stop after the configured task limit."""
+    from deribit_etl.infrastructure.db.repository import SqlAlchemyUnitOfWork
     from deribit_etl.infrastructure.tasks import tasks
 
+    class ConnectionFailingSession:
+        async def commit(self) -> None:
+            raise database_error
+
     async def failing_runner() -> None:
-        raise database_error
+        await SqlAlchemyUnitOfWork(ConnectionFailingSession()).commit()
 
     monkeypatch.setattr(tasks, "_run_ingestion", failing_runner)
 
-    with pytest.raises(Retry) as retry:
-        tasks.fetch_crypto_prices.apply(throw=True, retries=1)
-    assert retry.value.when == 2
+    for retries, countdown in ((0, 1), (1, 2), (2, 4)):
+        with pytest.raises(Retry) as retry:
+            tasks.fetch_crypto_prices.apply(throw=True, retries=retries)
+        assert retry.value.when == countdown
 
-    with pytest.raises(type(database_error)):
+    with pytest.raises(Exception) as exhausted:
         tasks.fetch_crypto_prices.apply(throw=True, retries=3)
+    root_error = exhausted.value.__cause__ or exhausted.value
+    assert isinstance(root_error, type(database_error))
+
+
+def test_celery_boundary_does_not_retry_raw_upstream_oserror(monkeypatch) -> None:
+    """An untyped provider socket failure must not be classified as a DB retry."""
+    from deribit_etl.infrastructure.tasks import tasks
+
+    async def failing_runner() -> None:
+        raise OSError("upstream socket failed")
+
+    monkeypatch.setattr(tasks, "_run_ingestion", failing_runner)
+
+    with pytest.raises(OSError, match="upstream socket failed"):
+        tasks.fetch_crypto_prices.apply(throw=True, retries=0)
 
 
 def test_celery_boundary_does_not_retry_upstream_errors(monkeypatch) -> None:

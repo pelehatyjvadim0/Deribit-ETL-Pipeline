@@ -4,11 +4,11 @@ import asyncio
 import logging
 
 import httpx
-from sqlalchemy.exc import SQLAlchemyError
 
 from deribit_etl.application.ingest import IngestPrices
 from deribit_etl.domain.models import Ticker
 from deribit_etl.infrastructure.db.database import create_engine, create_session_factory
+from deribit_etl.infrastructure.db.errors import DatabaseOperationError
 from deribit_etl.infrastructure.db.repository import (
     SqlAlchemyTickRepository,
     SqlAlchemyUnitOfWork,
@@ -60,7 +60,7 @@ async def _run_ingestion() -> None:
 
 @celery_app.task(
     name="fetch_crypto_prices",
-    autoretry_for=(SQLAlchemyError, OSError),
+    autoretry_for=(DatabaseOperationError,),
     retry_backoff=True,
     retry_backoff_max=60,
     retry_jitter=False,

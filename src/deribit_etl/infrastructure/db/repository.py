@@ -3,9 +3,11 @@
 from collections.abc import Sequence
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deribit_etl.domain.models import Tick, Ticker
+from deribit_etl.infrastructure.db.errors import DatabaseOperationError
 from deribit_etl.infrastructure.db.models import TickRecord
 
 
@@ -84,7 +86,10 @@ class SqlAlchemyUnitOfWork:
         self._session = session
 
     async def commit(self) -> None:
-        await self._session.commit()
+        try:
+            await self._session.commit()
+        except (SQLAlchemyError, OSError) as error:
+            raise DatabaseOperationError("Database commit failed") from error
 
     async def rollback(self) -> None:
         await self._session.rollback()
