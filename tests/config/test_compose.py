@@ -41,6 +41,8 @@ def test_compose_renders_a_private_health_gated_stack() -> None:
     config = _render_compose()
     services = config["services"]
 
+    assert set(config["volumes"]) == {"postgres_data"}
+    assert services["postgres"]["volumes"][0]["source"] == "postgres_data"
     assert {"api", "beat", "postgres", "redis", "worker"} <= set(services)
     assert all("container_name" not in service for service in services.values())
     assert all(
