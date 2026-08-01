@@ -2,40 +2,39 @@
   <img width="100%" alt="Deribit ETL Pipeline" src="https://capsule-render.vercel.app/api?type=rect&color=0:F8FAFC,100:E2E8F0&height=180&section=header&text=Deribit%20ETL%20Pipeline&fontSize=57&fontColor=0F172A&fontAlignY=40&desc=Small%20service.%20Clear%20contracts.%20Reproducible%20startup.&descAlignY=64&descSize=16" />
 
   <a href="#http-api"><img alt="Ticks BTC and ETH" src="https://img.shields.io/badge/TICKS-BTC__USD%20%2B%20ETH__USD-475569?style=for-the-badge&labelColor=1E293B" /></a>
-  <a href="#архитектура-и-ограничения"><img alt="Scheduler Celery Beat" src="https://img.shields.io/badge/SCHEDULER-CELERY%20BEAT-64748B?style=for-the-badge&labelColor=334155" /></a>
+  <a href="#architecture-and-limitations"><img alt="Scheduler Celery Beat" src="https://img.shields.io/badge/SCHEDULER-CELERY%20BEAT-64748B?style=for-the-badge&labelColor=334155" /></a>
 
   <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=650&size=16&pause=1900&color=334155&center=true&vCenter=true&width=720&lines=Price+observations%2C+not+trading+advice." alt="Price observations not trading advice" />
 </div>
 
-Сервис периодически получает индексные цены `BTC_USD` и `ETH_USD` из
-публичного API Deribit, сохраняет наблюдения в PostgreSQL и предоставляет
-read-only HTTP API. Celery Beat ставит задачу сбора в Redis, Celery Worker
-выполняет её, а FastAPI обслуживает запросы на чтение.
+The service periodically fetches `BTC_USD` and `ETH_USD` index prices from the
+public Deribit API, stores observations in PostgreSQL, and exposes a read-only
+HTTP API. Celery Beat schedules ingestion through Redis, Celery Worker runs it,
+and FastAPI serves read queries.
 
-Сервис не является торговой системой, гарантией цены или финансовой
-рекомендацией.
+This is not a trading system, a price guarantee, or financial advice.
 
-## Быстрый запуск
+## Quick start
 
-Нужны Docker и Docker Compose. Пример конфигурации содержит только локальные
-значения для разработки:
+Docker and Docker Compose are required. The example configuration contains
+local development values only:
 
 ```bash
 docker compose --env-file .env.example up --build
 ```
 
-Перед запуском API контейнер выполняет `alembic upgrade head`. API доступен на
-`http://localhost:8000`, OpenAPI UI — на `http://localhost:8000/docs`, проверка
-готовности — на `http://localhost:8000/health`.
+Before starting the API, its container runs `alembic upgrade head`. The API is
+available at `http://localhost:8000`, the OpenAPI UI at
+`http://localhost:8000/docs`, and readiness at `http://localhost:8000/health`.
 
-Чтобы изменить значения, скопируйте пример в игнорируемый Git файл `.env`:
+To override values, copy the example into the Git-ignored `.env` file:
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-Остановка сервисов сохраняет именованный том PostgreSQL:
+Stopping the services preserves the named PostgreSQL volume:
 
 ```bash
 docker compose down
@@ -43,9 +42,8 @@ docker compose down
 
 ## HTTP API
 
-Все сохранённые и возвращаемые timestamps — Unix-время в миллисекундах.
-Параметры запроса допускают целые Unix-секунды и нормализуют их один раз на
-границе API.
+All stored and returned timestamps are Unix milliseconds. Request parameters
+also accept whole Unix seconds and normalize them once at the API boundary.
 
 ```http
 GET /prices/?ticker=btc_usd&limit=10&offset=0
@@ -53,20 +51,20 @@ GET /prices/btc_usd/latest
 GET /prices/filter?ticker=btc_usd&start_timestamp=1700000000&end_timestamp=1700000010
 ```
 
-Элемент ответа имеет форму:
+Response items have this shape:
 
 ```json
 {"ticker":"btc_usd","price":"62000.50","timestamp":1700000005000}
 ```
 
-`/prices/` и `/prices/{ticker}/latest` возвращают `404`, если данных нет.
-`/prices/filter` возвращает список, отклоняет неверный диапазон и
-его начало более чем на 60 секунд в будущем.
-Допустимые тикеры: `btc_usd` и `eth_usd`.
+`/prices/` and `/prices/{ticker}/latest` return `404` when no data is found.
+`/prices/filter` returns a list, rejects invalid ranges, and rejects a range
+whose start is more than 60 seconds in the future. Supported tickers are
+`btc_usd` and `eth_usd`.
 
-## Разработка и проверки
+## Development and verification
 
-Проект использует Python 3.12 и зафиксированные зависимости `uv`:
+The project uses Python 3.12 and locked `uv` dependencies:
 
 ```bash
 uv sync --locked
@@ -77,22 +75,22 @@ uv run pytest
 docker compose --env-file .env.example config
 ```
 
-CI повторяет установку из lock-файла, lint, type-check, тесты и сохраняет XML
-отчёт покрытия как artifact. Процент покрытия в документации намеренно не
-фиксируется: он должен подтверждаться конкретным запуском.
+CI repeats the locked installation, lint, type check, and tests, then stores an
+XML coverage report as an artifact. The documentation intentionally does not
+state a permanent coverage percentage: it must be backed by a specific run.
 
-## Архитектура и ограничения
+## Architecture and limitations
 
-Слои, направления зависимостей, транзакции и жизненный цикл ресурсов описаны в
-[docs/architecture.md](docs/architecture.md).
+Layers, dependency direction, transactions, and resource lifecycles are
+described in [docs/architecture.md](docs/architecture.md).
 
-Текущие ограничения:
+Current limitations:
 
-- только индексные цены `BTC_USD` и `ETH_USD`;
-- нет авторизации, rate limiting, метрик и исторического backfill;
-- готовность API проверяет PostgreSQL, но не доступность Deribit;
-- локальная Compose-конфигурация рассчитана на один API, один worker и один beat.
+- only `BTC_USD` and `ETH_USD` index prices are collected;
+- there is no authentication, rate limiting, metrics, or historical backfill;
+- API readiness checks PostgreSQL, not Deribit availability;
+- the local Compose setup is sized for one API, one worker, and one beat.
 
-## Лицензия
+## License
 
 [MIT](LICENSE)
