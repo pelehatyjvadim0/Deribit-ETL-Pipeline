@@ -31,9 +31,13 @@ celerybeat.pid
 *.swo
 
 .pytest_cache/
+.ruff_cache/
+.pyright/
+.pre-commit-cache/
 .worktrees/
 .tox/
 .coverage
+.coverage.*
 htmlcov/
 nosetests.xml
 coverage.xml
